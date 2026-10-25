@@ -139,6 +139,41 @@ fn injected_fonts_reach_every_spine_document_in_opf_epub_and_dual_output() {
 }
 
 #[test]
+fn embedded_fonts_set_the_kf8_exth_font_flag() {
+    // MOBI header offset 112, bit 12: Calibre writes this when a book has
+    // embedded fonts, and the KF8 half of a dual-format file needs it too.
+    for legacy in [false, true] {
+        let fixture = Fixture::new();
+        let mut no_font_args = Vec::new();
+        if legacy {
+            no_font_args.push("--legacy-mobi");
+        }
+        assert_ok(&fixture.build(&fixture.opf(), &no_font_args));
+        let data = fs::read(fixture.0.join("out.azw3")).unwrap();
+        let parsed = common::parse_mobi_file(&data).unwrap();
+        assert_eq!(
+            parsed.kf8_or_kf7().header.exth_flags & 0x1000,
+            0,
+            "legacy={legacy}: a book without fonts must not advertise embedded fonts"
+        );
+
+        let regular = font("regular.ttf");
+        let mut font_args = vec!["--embed-font", regular.to_str().unwrap()];
+        if legacy {
+            font_args.push("--legacy-mobi");
+        }
+        assert_ok(&fixture.build(&fixture.opf(), &font_args));
+        let data = fs::read(fixture.0.join("out.azw3")).unwrap();
+        let parsed = common::parse_mobi_file(&data).unwrap();
+        assert_ne!(
+            parsed.kf8_or_kf7().header.exth_flags & 0x1000,
+            0,
+            "legacy={legacy}: a book with fonts must set the embedded-fonts flag"
+        );
+    }
+}
+
+#[test]
 fn metadata_fallback_order_and_family_override_keep_face_styles() {
     let paths = [
         font("regular.ttf"),

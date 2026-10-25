@@ -1424,6 +1424,7 @@ fn build_book_mobi(
             doc_type,
             // EXTH 125: real count of resource records in this section
             (num_image_records + num_font_records) as u32,
+            num_font_records > 0,
         );
 
         let kf8_flis_rec = build_flis();
@@ -1642,6 +1643,7 @@ fn build_book_mobi(
             // EXTH 125 is 0 in the KF8 section of a dual file: the resource
             // records live in the KF7 section (kindlegen does the same).
             0,
+            num_font_records > 0,
         );
 
         // Build FLIS/FCIS/EOF for both sections
@@ -7546,6 +7548,7 @@ fn build_kf8_record0(
     _total_records: usize,
     doc_type: Option<&str>,
     resource_count: u32,
+    has_fonts: bool,
 ) -> Vec<u8> {
     let full_name = if opf.title.is_empty() {
         "Book"
@@ -7612,7 +7615,7 @@ fn build_kf8_record0(
     put32(&mut mobi, 96, 0); // huffman record
     put32(&mut mobi, 100, 0); // huffman count
 
-    put32(&mut mobi, 112, 0x50); // exth_flags (matches KCC KF8 section)
+    put32(&mut mobi, 112, if has_fonts { 0x1050 } else { 0x50 }); // exth_flags (bit 12 = embedded fonts)
 
     put32(&mut mobi, 148, 0xFFFFFFFF); // DRM flags
     put32(&mut mobi, 152, 0xFFFFFFFF);
